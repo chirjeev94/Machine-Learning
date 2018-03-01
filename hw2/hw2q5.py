@@ -11,6 +11,9 @@ import numpy as np
 import gc
 from nltk.corpus import stopwords
 from collections import Counter
+from time import time
+
+w_glob = 0
 
 def unique_word_set(string_list):
     set_list = []
@@ -27,17 +30,22 @@ def unique_word_set(string_list):
     w0.to_csv("init_w.csv")
     return w0
 
+
 def tfd(string):
+     global w_glob
      wc = Counter(string.split(" "))
      x = pd.Series(wc.values(),index = wc.keys())
+     x = pd.Series(x,index=w_glob.index).fillna(0.0)
      return x 
 
+#Really Slow
 def update_w(old_w,string,label):
-    string_vec = tfd(string)
     
-    #This  will ignore all the new words in string_vec
-    string_vec = pd.Series(string_vec,index=old_w.index).fillna(0.0)
+    string_vec = tfd(string)    
+    return fast_update_w(old_w,string_vec,label)
     
+#Maybe better.
+def fast_update_w(old_w,string_vec,label):
     dot_product = old_w.dot(string_vec)
     
     if(dot_product >= 0 and label == 0):
@@ -45,9 +53,10 @@ def update_w(old_w,string,label):
     elif (dot_product <= 0 and label == 1):
         return (old_w + string_vec)
     return old_w
-   
-def main():
+
     
+def main():
+    global w_glob
     #Storing all the unique words in a files
     #Toggle it to true if it's first run 
     uw_comp_necessary = False
@@ -62,6 +71,7 @@ def main():
     else:
         w0 = pd.Series.from_csv("init_w.csv")    
     
+    w_glob = pd.Series(0.0,index = w0.index)
     w_final = pd.Series(0.0,index = w0.index)
 
         
@@ -73,26 +83,32 @@ def main():
     write = True
         
     #Processing the file in chunck
-    for chunk in pd.read_csv("reviews_tr.csv", chunksize=chunksize):        
+    start = time()
+    for chunk in pd.read_csv("reviews_tr.csv", chunksize=chunksize):
+        
+        chunk["text"] = chunk["text"].map(tfd)
         for index, row in chunk.iterrows():
-            w0 = update_w(w0,row[1],row[0])
+            w0 = fast_update_w(w0,row[1],row[0])
             w_final = w_final + w0
         #Shuffle and re-do
         chunk = chunk.iloc[np.random.permutation(len(chunk))]
         for index, row in chunk.iterrows():
-            w0 = update_w(w0,row[1],row[0])
-            w_final = w_final + w0    
+            w0 = fast_update_w(w0,row[1],row[0])
+            w_final = w_final + w0   
+            
         total_len += 2 * len(chunk)
         w_list.append(w_final/total_len)
-        print "Processed " + str(total_len/2)
+        print "Processed " + str(total_len/2) + " in " + str(time()-start)
         
         if(control):
             print "Do you wish to continue?"
             ans = raw_input("Yes/No?")
             if ans == "No":
-                break
+                break 
             
     #Documenting all the w for testing
+    #To get it back use this
+    #w = pd.Series.from_csv("w0.csv")
     j = 0
     if(write):
         for i in w_list:
