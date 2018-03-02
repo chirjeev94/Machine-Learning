@@ -45,12 +45,6 @@ def tfd(string):
      x = pd.Series(x,index=w_glob.index).fillna(0.0)
      return x 
 
-#Really Slow
-def update_w(old_w,string,label):
-    
-    string_vec = tfd(string)    
-    return fast_update_w(old_w,string_vec,label)
-    
 #Maybe better.
 def fast_update_w(old_w,string_vec,label):
     dot_product = old_w.dot(string_vec)
@@ -109,6 +103,7 @@ def main():
         for row in zip(chunk["label"],chunk["text"]):
             w0 = fast_update_w(w0,row[1],row[0])
             w_final = w_final + w0   
+        print "TF Part Over " + str(time()-start)
         
         #TF_IDF
         if(tf_idf_flag):
@@ -116,16 +111,17 @@ def main():
             chunk["text"] = chunk["text"].map(lambda x: x/tf_idf_denom *mod_d)
             print "TF_IDF Computed " + str(time()-start)
             
-            for row in zip(chunk[0],chunk[1]):
+            for row in zip(chunk["label"],chunk["text"]):
                 idf_w_0 = fast_update_w(idf_w_0,row[1],row[0])
                 idf_w_final = idf_w_final + idf_w_0
         
-            print "Shuffling " + str(time()-start)
+            print "TF_IDF_Shuffling " + str(time()-start)
             #Shuffle and re-do
             chunk = chunk.iloc[np.random.permutation(len(chunk))]
             for row in zip(chunk["label"],chunk["text"]):
                 idf_w_0 = fast_update_w(idf_w_0,row[1],row[0])
                 idf_w_final = idf_w_final + idf_w_0 
+            print "TF_IDF Part Over " + str(time()-start)
             
         total_len += 2 * len(chunk)
             
