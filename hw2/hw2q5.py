@@ -22,7 +22,6 @@ def unique_word_set(string_list):
     for string in string_list:
         set_list.append(set(string.split(" ")))
     unique_words = set.union(*set_list)
-    
     # If the line below fails, download stopwords
     # import nltk
     # nltk.download('stopwords')
@@ -37,7 +36,8 @@ def tf_idf_prep(chunk):
     mod_d = mod_d + len(chunk)
     tf_idf_denom = tf_idf_denom + chunk["text"].sum()
     
-    
+
+#Any faster way??????  
 def tfd(string):
      global w_glob
      wc = Counter(string.split(" "))
@@ -45,7 +45,6 @@ def tfd(string):
      x = pd.Series(x,index=w_glob.index).fillna(0.0)
      return x 
 
-#Maybe better.
 def fast_update_w(old_w,string_vec,label):
     dot_product = old_w.dot(string_vec)
     
@@ -76,8 +75,6 @@ def main():
     tf_idf_denom = pd.Series(0.0,index = w0.index)
     idf_w_0 = pd.Series(0.0,index = w0.index)
     idf_w_final = pd.Series(0.0,index = w0.index)
-        
-    #Storing all the ws
     w_list = []
     idf_w_list = []
     chunksize = 5000
@@ -85,6 +82,7 @@ def main():
     control = True
     write = True
     tf_idf_flag = True 
+
     #Processing the file in chunck
     start = time()
     for chunk in pd.read_csv("reviews_tr.csv", chunksize=chunksize):
