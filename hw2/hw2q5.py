@@ -14,6 +14,8 @@ from collections import Counter
 from time import time
 
 w_glob = 0
+mod_d = 0
+tf_idf_denom = 0
 
 def unique_word_set(string_list):
     set_list = []
@@ -30,7 +32,12 @@ def unique_word_set(string_list):
     w0.to_csv("init_w.csv")
     return w0
 
-
+def tf_idf_prep(chunk):
+    global mod_d,tf_idf_denom
+    mod_d = mod_d + len(chunk)
+    tf_idf_denom = tf_idf_denom + chunk["text"].sum()
+    
+    
 def tfd(string):
      global w_glob
      wc = Counter(string.split(" "))
@@ -53,10 +60,9 @@ def fast_update_w(old_w,string_vec,label):
     elif (dot_product <= 0 and label == 1):
         return (old_w + string_vec)
     return old_w
-
     
 def main():
-    global w_glob
+    global w_glob, tf_idf_denom, mod_d
     #Storing all the unique words in a files
     #Toggle it to true if it's first run 
     uw_comp_necessary = False
@@ -73,39 +79,69 @@ def main():
     
     w_glob = pd.Series(0.0,index = w0.index)
     w_final = pd.Series(0.0,index = w0.index)
-
+    tf_idf_denom = pd.Series(0.0,index = w0.index)
+    idf_w_0 = pd.Series(0.0,index = w0.index)
+    idf_w_final = pd.Series(0.0,index = w0.index)
         
     #Storing all the ws
     w_list = []
-    chunksize = 10 ** 5
+    idf_w_list = []
+    chunksize = 5000
     total_len = 0
     control = True
     write = True
-        
+    tf_idf_flag = True 
     #Processing the file in chunck
     start = time()
     for chunk in pd.read_csv("reviews_tr.csv", chunksize=chunksize):
         
-        chunk["text"] = chunk["text"].map(tfd)
-        for index, row in chunk.iterrows():
+        #TFD
+        chunk["text"] = chunk["text"].map(tfd)        
+        print "TFD Computed " + str(time()-start)
+        
+        for row in zip(chunk["label"],chunk["text"]):
             w0 = fast_update_w(w0,row[1],row[0])
             w_final = w_final + w0
+        
+        print "Shuffling " + str(time()-start)
         #Shuffle and re-do
         chunk = chunk.iloc[np.random.permutation(len(chunk))]
-        for index, row in chunk.iterrows():
+        for row in zip(chunk["label"],chunk["text"]):
             w0 = fast_update_w(w0,row[1],row[0])
             w_final = w_final + w0   
+        
+        #TF_IDF
+        if(tf_idf_flag):
+            tf_idf_prep(chunk)
+            chunk["text"] = chunk["text"].map(lambda x: x/tf_idf_denom *mod_d)
+            print "TF_IDF Computed " + str(time()-start)
+            
+            for row in zip(chunk[0],chunk[1]):
+                idf_w_0 = fast_update_w(idf_w_0,row[1],row[0])
+                idf_w_final = idf_w_final + idf_w_0
+        
+            print "Shuffling " + str(time()-start)
+            #Shuffle and re-do
+            chunk = chunk.iloc[np.random.permutation(len(chunk))]
+            for row in zip(chunk["label"],chunk["text"]):
+                idf_w_0 = fast_update_w(idf_w_0,row[1],row[0])
+                idf_w_final = idf_w_final + idf_w_0 
             
         total_len += 2 * len(chunk)
-        w_list.append(w_final/total_len)
-        print "Processed " + str(total_len/2) + " in " + str(time()-start)
-        
-        if(control):
-            print "Do you wish to continue?"
-            ans = raw_input("Yes/No?")
-            if ans == "No":
-                break 
             
+        if(total_len % 10 ** 5 == 0):
+            w_list.append(w_final/total_len)
+            if(tf_idf_flag):
+                idf_w_list.append(idf_w_final/total_len)
+                
+            print "Processed " + str(total_len/2) + " in " + str(time()-start)
+            
+            if(control):
+                print "Do you wish to continue?"
+                ans = raw_input("Yes/No?")
+                if ans == "No":
+                    break 
+                
     #Documenting all the w for testing
     #To get it back use this
     #w = pd.Series.from_csv("w0.csv")
@@ -114,7 +150,12 @@ def main():
         for i in w_list:
             i.to_csv("w"+ str(j) +".csv")
             j = j + 1
-    
+            
+        if(tf_idf_flag):
+            j=0
+            for i in idf_w_list:
+                i.to_csv("idf_w"+ str(j) +".csv")
+                j = j + 1
     #Testing accuracy part to follow
 
 if __name__ == '__main__':
