@@ -13,9 +13,11 @@ from time import time
 
 total_len = 0
 tf_idf_denom = 0
+np_tf_idf_denom = 0
 w0 = 0
 idf_w_0 = 0
-
+np_w0 = 0
+np_idf_w_0 = 0
 
 def unique_word_set(string_list):
     set_list = []
@@ -39,29 +41,29 @@ def faster_tfd(chunk):
 
 
 def perceptron_map_tf(row):
-    global w0, tf_idf_denom
-    vec = pd.Series(row[1], index=w0.index).fillna(0.0)
-    tf_idf_denom = tf_idf_denom + vec
-    dot_product = w0.dot(vec)
+    global np_w0, np_tf_idf_denom, w0
+    vec = pd.Series(row[1], index=w0.index).fillna(0.0).as_matrix()
+    np_tf_idf_denom = np_tf_idf_denom + vec
+    dot_product = np_w0.dot(vec)
     if (dot_product >= 0 and row[0] == 0):
-        w0 = w0 - vec
+        np_w0 = np_w0 - vec
     elif (dot_product <= 0 and row[0] == 1):
-        w0 = w0 + vec
+        np_w0 = np_w0 + vec
 
 
 def perceptron_map_tf_idf(row):
-    global idf_w_0, tf_idf_denom
-    vec = pd.Series(row[1], index=w0.index).fillna(0.0)
-    vec = vec / tf_idf_denom * total_len / 2
-    dot_product = w0.dot(vec)
+    global np_idf_w_0, np_idf_w_0, np_tf_idf_denom, w0
+    vec = pd.Series(row[1], index=w0.index).fillna(0.0).as_matrix()
+    vec = vec * total_len / (2 * np_tf_idf_denom)
+    dot_product = np_idf_w_0.dot(vec)
     if (dot_product >= 0 and row[0] == 0):
-        idf_w_0 = idf_w_0 - vec
+        np_idf_w_0 = np_idf_w_0 - vec
     elif (dot_product <= 0 and row[0] == 1):
-        idf_w_0 = idf_w_0 + vec
+        np_idf_w_0 = np_idf_w_0 + vec
 
 
 def main():
-    global tf_idf_denom, total_len, w0, idf_w_0
+    global tf_idf_denom, total_len, w0, idf_w_0, np_idf_w_0, np_tf_idf_denom, np_w0
     # Storing all the unique words in a files
     # Toggle it to true if it's first run
     uw_comp_necessary = False
@@ -78,6 +80,10 @@ def main():
 
     tf_idf_denom = pd.Series(0.0, index=w0.index)
     idf_w_0 = pd.Series(0.0, index=w0.index)
+    np_w0 = w0.as_matrix()
+    np_idf_w_0 = idf_w_0.as_matrix()
+    np_tf_idf_denom = tf_idf_denom.as_matrix()
+
     w_list = []
     idf_w_list = []
     chunksize = 10000
@@ -107,9 +113,9 @@ def main():
         print "TF_IDF Part Over " + str(time() - start)
 
         if (total_len % 10 ** 4) == 0:
-            w_list.append(w0 / (total_len * 2 + 1))
-            idf_w_list.append(idf_w_0 / (1 + total_len * 2))
-            print "Processed " + str(total_len / 2) + " in " + str(time() - start)
+            w_list.append(np_w0 / (total_len * 2 + 1))
+            idf_w_list.append(np_idf_w_0 / (1 + total_len * 2))
+            print "Processed " + str(total_len) + " in " + str(time() - start)
 
             if control:
                 print "Do you wish to continue?"
@@ -123,11 +129,13 @@ def main():
     j = 0
     if (write):
         for i in w_list:
-            i.to_csv("w" + str(j) + ".csv")
+            temp = pd.Series(i,index=w0.index)
+            temp.to_csv("w" + str(j) + ".csv")
             j = j + 1
         j = 0
         for i in idf_w_list:
-            i.to_csv("idf_w" + str(j) + ".csv")
+            temp = pd.Series(i, index=w0.index)
+            temp.to_csv("idf_w" + str(j) + ".csv")
             j = j + 1
 
     # Testing accuracy part to follow
