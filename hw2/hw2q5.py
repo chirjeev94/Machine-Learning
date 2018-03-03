@@ -35,31 +35,28 @@ def unique_word_set(string_list):
 
 
 def faster_tfd(chunk):
+    global w0,np_tf_idf_denom
     chunk["text"] = chunk["text"].str.split()
-    chunk["text"] = chunk["text"].map(lambda x: pd.Series.value_counts(pd.Series(x)))
+    chunk["text"] = chunk.text.apply(lambda x: pd.Series(pd.Series.value_counts(pd.Series(x)),index=w0.index).fillna(0.0).as_matrix())
+    np_tf_idf_denom = np_tf_idf_denom + np.sum(chunk["text"])
     return chunk
-
 
 def perceptron_map_tf(row):
     global np_w0, np_tf_idf_denom, w0
-    vec = pd.Series(row[1], index=w0.index).fillna(0.0).as_matrix()
-    np_tf_idf_denom = np_tf_idf_denom + vec
-    dot_product = np_w0.dot(vec)
+    dot_product = np_w0.dot(row[1])
     if (dot_product >= 0 and row[0] == 0):
-        np_w0 = np_w0 - vec
+        np_w0 = np_w0 - row[1]
     elif (dot_product <= 0 and row[0] == 1):
-        np_w0 = np_w0 + vec
+        np_w0 = np_w0 + row[1]
 
 
 def perceptron_map_tf_idf(row):
     global np_idf_w_0, np_idf_w_0, np_tf_idf_denom, w0
-    vec = pd.Series(row[1], index=w0.index).fillna(0.0).as_matrix()
-    vec = vec * total_len / (2 * np_tf_idf_denom)
-    dot_product = np_idf_w_0.dot(vec)
+    dot_product = np_idf_w_0.dot(row[1])
     if (dot_product >= 0 and row[0] == 0):
-        np_idf_w_0 = np_idf_w_0 - vec
+        np_idf_w_0 = np_idf_w_0 - row[1]
     elif (dot_product <= 0 and row[0] == 1):
-        np_idf_w_0 = np_idf_w_0 + vec
+        np_idf_w_0 = np_idf_w_0 + row[1]
 
 
 def main():
@@ -86,8 +83,8 @@ def main():
 
     w_list = []
     idf_w_list = []
-    chunksize = 10000
-    control = True
+    chunksize = 10 ** 5
+    control = False
     write = True
     tf_idf_flag = False
 
@@ -106,17 +103,17 @@ def main():
 
         # TF_IDF
         print "TF_IDF Start " + str(time() - start)
+        chunk.text.apply(lambda x:(total_len/2) * np.divide(x, np_tf_idf_denom, out=np.zeros_like(x), where=np_tf_idf_denom != 0))
         chunk.apply(perceptron_map_tf_idf, axis=1)
         print "TF_IDF_Shuffling " + str(time() - start)
         chunk = chunk.iloc[np.random.permutation(len(chunk))]
         chunk.apply(perceptron_map_tf_idf, axis=1)
         print "TF_IDF Part Over " + str(time() - start)
 
-        if (total_len % 10 ** 4) == 0:
+        if (total_len % 10 ** 5) == 0:
             w_list.append(np_w0 / (total_len * 2 + 1))
             idf_w_list.append(np_idf_w_0 / (1 + total_len * 2))
             print "Processed " + str(total_len) + " in " + str(time() - start)
-
             if control:
                 print "Do you wish to continue?"
                 ans = raw_input("Yes/No?")
@@ -137,7 +134,7 @@ def main():
             temp = pd.Series(i, index=w0.index)
             temp.to_csv("idf_w" + str(j) + ".csv")
             j = j + 1
-
+    print('\a')
     # Testing accuracy part to follow
 
 if __name__ == '__main__':
