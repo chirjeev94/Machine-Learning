@@ -41,7 +41,7 @@ def main():
     accu2 = []
     sample1["label"] = sample1["label"].replace(to_replace = 0, value = -1 )
     sample2["label"] = sample2["label"].replace(to_replace=0, value = -1)
-    for i in tf_w_list():
+    for i in tf_w_list:
         temp = sample1["text"].dot(i)
         temp = temp * sample1["label"]
         accu1.append((temp >= 0).count()/len(sample1))
