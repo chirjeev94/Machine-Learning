@@ -31,27 +31,34 @@ def main():
     for i in range(1,40,2):
         tf_w_list.append(pd.Series.from_csv("w" + str(i) + ".csv"))
     
-    sample1 = test_data.sample(n=15000)
-    sample2 = test_data.sample(n=15000)
+    sample1 = test_data.sample(n=20000)
+    sample2 = test_data.sample(n=20000)
+    sample3 = test_data[len(test_data)-20000:]
     
     sample1 = faster_tfd(sample1)
     sample2 = faster_tfd(sample2)
+    sample3 = faster_tfd(sample3)
 
     accu1 = []
     accu2 = []
+    accu3 = []
+
     sample1["label"] = sample1["label"].replace(to_replace = 0, value = -1 )
     sample2["label"] = sample2["label"].replace(to_replace=0, value = -1)
+    sample3["label"] = sample3["label"].replace(to_replace=0, value=-1)
     for i in tf_w_list:
-        temp = sample1["text"].dot(i)
+        temp = sample1["text"].apply(lambda x: np.dot(x,i))
         temp = temp * sample1["label"]
-        accu1.append((temp >= 0).count()/len(sample1))
-        temp = sample2["text"].dot(i)
+        accu1.append(len([m for m in temp if m > 0])/len(sample1))
+        temp = sample2["text"].apply(lambda x: np.dot(x, i))
         temp = temp * sample2["label"]
-        accu2.append((temp >= 0).count() / len(sample2))
+        accu2.append(len([m for m in temp if m > 0]) / len(sample2))
+        temp = sample3["text"].apply(lambda x: np.dot(x, i))
+        temp = temp * sample3["label"]
+        accu3.append(len([m for m in temp if m > 0]) / len(sample3))
+        accu = [x + y + z for x, y, z in zip(accu1,accu2,accu3)]
 
 
 
-     
-    
 if __name__ == '__main__':
     main()
